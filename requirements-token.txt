@@ -1,0 +1,4 @@
+# 令牌获取工具依赖（可选，按需安装，~111MB）
+# 只被 1.获取令牌.bat / get_token.py 用到，代理运行时不需要。
+# 双击 1.获取令牌.bat 会自动装；装完后若不想要，可 pip uninstall playwright 缩回运行时大小。
+playwright

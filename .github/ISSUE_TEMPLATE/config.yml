@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 先看文档
+    url: https://github.com/sapphirestar46/hainnu-proxy#readme
+    about: 部署、客户端配置、故障排查都在 README 里；给 AI Agent 的部署指令单独在 AGENT.md。
+  - name: 🔒 安全问题
+    url: https://github.com/sapphirestar46/hainnu-proxy/security/advisories/new
+    about: 涉及凭据泄露或非授权访问，请用私有安全公告报告，不要开公开 issue。

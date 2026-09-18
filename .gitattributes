@@ -1,0 +1,6 @@
+# 本项目只在 Windows 上使用（bat / vbs / 便携 runtime），文本统一以 CRLF 检出，
+# 避免 bat 在其它平台上被写成 LF 而出现执行异常，也避免跨平台协作时的换行抖动。
+* text=auto eol=crlf
+
+# 打包产物与便携 Python 运行时不入库（见 .gitignore），此处仅为防误加时的兜底
+*.zip binary

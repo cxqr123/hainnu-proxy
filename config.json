@@ -1,0 +1,25 @@
+{
+  "upstream": "https://chat.hainnu.edu.cn",
+  "token_file": "token.txt",
+  "host": "127.0.0.1",
+  "port": 8787,
+  "local_api_key": "sk-hainnu",
+  "default_model": "",
+  "aliases": {},
+  "static_models": [],
+  "clean_think_tags": true,
+  "anthropic_emit_thinking": false,
+  "extra_body": {
+    "reasoning_effort": "medium"
+  },
+  "upstream_retries": 4,
+  "rate_limit_cooldown": 12,
+  "timeout": 300,
+  "verify_ssl": true,
+  "passthrough_unknown_model": false,
+  "respect_proxy_env": false,
+  "debug_capture": false,
+  "rate_limit_per_minute": 0,
+  "max_concurrency": 0,
+  "local_keys": []
+}
