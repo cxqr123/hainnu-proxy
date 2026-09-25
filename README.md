@@ -19,6 +19,9 @@
 [使用教程](README.md) · [给 AI Agent](AGENT.md) · [安全策略](SECURITY.md) ·
 [贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md)
 
+**请从 [Releases](https://github.com/sapphirestar46/hainnu-proxy/releases/latest) 下载最新包。**
+不要用页面上的「Code → Download ZIP」或 `git clone` 当安装包：仓库里没有便携 `runtime\`，直接启动会缺依赖。
+
 ## 0. 声明
 
 **本库为纯粹vibe coding产物。**
@@ -108,7 +111,7 @@
 | 模型名 | 无需指定；请求中的模型名由服务端解析为上游实际存在的 id，真实 id 见 `/v1/models` |
 | 部署步骤 | ① 安装依赖（通常可跳过，分发包内含 `runtime\`）② 人工登录获取令牌 ③ 启动并自检 |
 | 唯一人工步骤 | 获取令牌时需在弹出的 Chrome 中通过学校 CAS 账号登录（Agent 不得代填密码） |
-| 分发包 | `hainnu-proxy.zip`，内含 `runtime\`，解压即可使用 |
+| 分发包 | [Releases 最新版](https://github.com/sapphirestar46/hainnu-proxy/releases/latest)：`hainnu-proxy.zip`（含 `runtime\`，解压即用）或 `hainnu-proxy-scripts.zip`（仅脚本） |
 
 ---
 
@@ -143,7 +146,7 @@
 > 客户端报「由于目标计算机积极拒绝，无法连接」（端口上根本没人监听）。
 > 两种解法，选其一：
 >
-> 1. **用分发包** `hainnu-proxy.zip`（见 §13）—— 内含 `runtime\`，解压即用，推荐；
+> 1. **用分发包** [Releases 里的 `hainnu-proxy.zip`](https://github.com/sapphirestar46/hainnu-proxy/releases/latest) —— 内含 `runtime\`，解压即用，推荐；
 > 2. 用源码就**先执行 `0.安装依赖.bat`**，装出 `.venv\` 后再启动。
 >
 > 判断依据：启动窗口若出现 `ModuleNotFoundError: No module named 'fastapi'`（或 `uvicorn` / `httpx`），
@@ -638,9 +641,14 @@ openai stream done 12.3s finished=True aborted=False     # finished=False aborte
 
 ## 13. 分发与文件清单
 
-分发包由开发目录中的 `build_portable.py` 生成（该脚本本身不随包分发）：
-**`hainnu-proxy.zip`** —— 脚本 + `runtime/`，解压即用，不含凭据与运行时产物。
+到 **[Releases](https://github.com/sapphirestar46/hainnu-proxy/releases/latest)** 下载，不要把仓库源码 ZIP 当安装包。
 
+| 文件 | 内容 |
+| --- | --- |
+| `hainnu-proxy.zip` | 脚本 + 便携 Python `runtime/`，解压即用 |
+| `hainnu-proxy-scripts.zip` | 仅脚本。本机已有 Python 时用；启动时会自动准备依赖 |
+
+两包都不含凭据与运行产物。由开发目录中的 `build_portable.py` 生成（该脚本本身不随包分发）。
 完整文件清单与分发取舍见 [`AGENT.md`](AGENT.md)「脚本速查 / 分发说明」。
 
 ---
