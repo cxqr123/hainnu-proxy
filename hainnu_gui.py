@@ -80,6 +80,44 @@ CACHE_HIT_RATIO_DEFAULT = 0.97
 CREATE_NO_WINDOW = 0x08000000
 DEVNULL = subprocess.DEVNULL
 
+# ================== 飞书化 UI 设计规范（只管样式，不改任何功能逻辑） ==================
+# 色板取自飞书设计规范：主蓝 #3370FF、浅灰底、白卡片、细边框、分层文字灰。
+UI = {
+    # 背景：窗口浅灰底、卡片纯白、悬停浅蓝
+    "bg":              "#F5F6F7",
+    "card":            "#FFFFFF",
+    "hover":           "#F2F3FF",
+    # 主色：飞书蓝
+    "primary":         "#3370FF",
+    "primary_dark":    "#2B5FD9",
+    # 边框 / 分隔
+    "border":          "#DEE0E3",
+    "divider":         "#EFF0F1",
+    # 文字分层灰
+    "text_main":       "#1F2329",
+    "text_regular":    "#3A3F47",
+    "text_secondary":  "#646A73",
+    "text_hint":       "#8F959E",
+    # 语义色（对齐飞书语义色板）
+    "success":         "#2EA711",
+    "warning":         "#ED7B2F",
+    "danger":          "#F54A45",
+    "teal":            "#04B49C",   # 缓存命中（青绿）
+    # 图表：输入线=主蓝；输出橙 / 命中率紫，及各自的浅色柱填充
+    "chart_out":       "#FF8800",
+    "chart_rate":      "#7F3BF5",
+    "chart_fill_in":   "#E1EAFF",
+    "chart_fill_out":  "#FFEAD1",
+    "chart_fill_rate": "#ECE1FC",
+}
+FONT_FAMILY = "Microsoft YaHei UI"
+F_TITLE   = (FONT_FAMILY, 13, "bold")   # 头部标题
+F_CARD    = (FONT_FAMILY, 10, "bold")   # 卡片标题
+F_BODY    = (FONT_FAMILY, 9)            # 正文
+F_SMALL   = (FONT_FAMILY, 8)            # 小字说明
+F_SMALL_B = (FONT_FAMILY, 8, "bold")    # 图表轴名
+F_MONO_S  = ("Consolas", 8)             # URL / Key 等单宽小字
+
 
 def load_port() -> int:
     try:
@@ -918,7 +956,7 @@ class HainnuGUI(tk.Tk):
         super().__init__()
         self.geometry("1240x700")
         self.minsize(1040, 560)
-        self.configure(bg="#f5f6f8")
+        self.configure(bg=UI["bg"])
         self._user_name = _load_user_name()   # 登录时保存的姓名（get_token.py 写入 user_name.txt）
         self._last_greet_hour = time.localtime().tm_hour
         _gs = self._greet_suffix()
@@ -981,100 +1019,155 @@ class HainnuGUI(tk.Tk):
     def _build_ui(self):
         pad = {"padx": 12, "pady": 6}
 
-        # 头部
-        head = tk.Frame(self, bg="#20232a")
+        # ---- 纯样式小工具：卡片 / 按钮 / 标签 / 输入框（不改变任何交互行为） ----
+        def card(parent, title):
+            """飞书式白卡片：白底 + 1px 细边框 + 卡片标题行 + 标题下细分隔线。"""
+            c = tk.Frame(parent, bg=UI["card"], bd=0,
+                         highlightbackground=UI["border"], highlightthickness=1)
+            tk.Label(c, text=title, bg=UI["card"], fg=UI["text_main"],
+                     font=F_CARD, anchor="w").pack(fill="x", padx=12, pady=(10, 4))
+            tk.Frame(c, bg=UI["divider"], height=1, bd=0,
+                     highlightthickness=0).pack(fill="x", padx=12)
+            body = tk.Frame(c, bg=UI["card"])
+            body.pack(fill="both", expand=True, padx=12, pady=(8, 10))
+            return c, body
+
+        def btn(parent, text, cmd, width, kind="secondary", font=F_BODY):
+            """飞书两级按钮：primary=蓝底白字，secondary=白底描边；悬停仅变底色。"""
+            if kind == "primary":
+                bg, fg = UI["primary"], "#FFFFFF"
+                abg, afg = UI["primary_dark"], "#FFFFFF"
+                edge = UI["primary"]
+            else:
+                bg, fg = UI["card"], UI["text_regular"]
+                abg, afg = UI["hover"], UI["text_main"]
+                edge = UI["border"]
+            b = tk.Button(parent, text=text, width=width, command=cmd,
+                          bg=bg, fg=fg, activebackground=abg, activeforeground=afg,
+                          relief="flat", bd=0, highlightthickness=1,
+                          highlightbackground=edge, highlightcolor=edge,
+                          font=font, cursor="hand2", takefocus=0)
+            b.bind("<Enter>", lambda _e, w=b, c=abg: w.config(bg=c))
+            b.bind("<Leave>", lambda _e, w=b, c=bg: w.config(bg=c))
+            return b
+
+        def lbl(parent, text, fg=None, font=F_BODY, **kw):
+            """卡片内标签：默认白底、正文灰。"""
+            return tk.Label(parent, text=text, bg=UI["card"],
+                            fg=fg or UI["text_regular"], font=font, **kw)
+
+        def entry(parent, var):
+            """飞书式输入框：白底细边框，聚焦变主蓝描边。"""
+            return tk.Entry(parent, textvariable=var, font=F_MONO_S,
+                            relief="flat", bd=0, highlightthickness=1,
+                            highlightbackground=UI["border"],
+                            highlightcolor=UI["primary"],
+                            bg=UI["card"], fg=UI["text_main"],
+                            insertbackground=UI["text_main"])
+
+        # ttk（仅「模型」下拉一个）统一到飞书观感：白底、细边、聚焦主蓝
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except Exception:  # noqa: BLE001
+            pass
+        style.configure("Feishu.TCombobox",
+                        fieldbackground=UI["card"], background=UI["card"],
+                        foreground=UI["text_main"], bordercolor=UI["border"],
+                        lightcolor=UI["card"], darkcolor=UI["card"],
+                        arrowcolor=UI["text_secondary"], padding=2)
+        style.map("Feishu.TCombobox",
+                  bordercolor=[("active", UI["primary"]), ("focus", UI["primary"])],
+                  fieldbackground=[("readonly", UI["card"])],
+                  foreground=[("readonly", UI["text_main"])])
+
+        # 头部：白底标题栏 + 状态点，下方一条细分隔线
+        head = tk.Frame(self, bg=UI["card"])
         head.pack(fill="x")
         self.l_head = tk.Label(head, text="Hainnu Proxy · 本地 OpenAI / Anthropic 接口",
-                               bg="#20232a", fg="white", font=("Segoe UI", 14, "bold"))
-        self.l_head.pack(side="left", padx=12, pady=10)
-        self.status_dot = tk.Canvas(head, width=16, height=16, bg="#20232a",
+                               bg=UI["card"], fg=UI["text_main"], font=F_TITLE)
+        self.l_head.pack(side="left", padx=20, pady=14)
+        self.status_dot = tk.Canvas(head, width=16, height=16, bg=UI["card"],
                                     highlightthickness=0)
-        self.status_dot.pack(side="right", padx=(0, 8), pady=12)
-        self.status_txt = tk.Label(head, text="未检测", bg="#20232a", fg="#bbb",
-                                   font=("Segoe UI", 10))
-        self.status_txt.pack(side="right", padx=(0, 14))
+        self.status_dot.pack(side="right", padx=(0, 8))
+        self.status_txt = tk.Label(head, text="未检测", bg=UI["card"],
+                                   fg=UI["text_hint"], font=F_BODY)
+        self.status_txt.pack(side="right", padx=(0, 10))
+        tk.Frame(self, bg=UI["divider"], height=1, bd=0,
+                 highlightthickness=0).pack(fill="x")
 
         # 顶部三栏横排（横向紧凑放下）：运行状态 / 费用估算·省钱 / 连接配置
-        top_row = tk.Frame(self)
+        top_row = tk.Frame(self, bg=UI["bg"])
         top_row.pack(fill="x", **pad)
 
-        box = tk.LabelFrame(top_row, text="运行状态", font=("Segoe UI", 10, "bold"),
-                            padx=8, pady=4, bd=1)
-        box.pack(side="left", fill="both", expand=True, padx=(0, 6))
-        self.l_run = tk.Label(box, text="代理：—", anchor="w", font=("Segoe UI", 9))
+        box, box_body = card(top_row, "运行状态")
+        box.pack(side="left", fill="both", expand=True, padx=(0, 8))
+        self.l_run = lbl(box_body, "代理：—", fg=UI["text_main"], anchor="w")
         self.l_run.pack(fill="x")
         # 持续运行时长、速率各自独立一行（不挤进“代理”那一行小字）
-        self.l_uptime = tk.Label(box, text="持续运行：—", anchor="w",
-                                 font=("Segoe UI", 9), fg="#333")
-        self.l_uptime.pack(fill="x")
-        self.l_speed = tk.Label(box, text="速率：—", anchor="w",
-                                font=("Segoe UI", 9), fg="#333")
+        self.l_uptime = lbl(box_body, "持续运行：—", anchor="w")
+        self.l_uptime.pack(fill="x", pady=(6, 0))
+        self.l_speed = lbl(box_body, "速率：—", anchor="w")
         self.l_speed.pack(fill="x")
-        self.l_speed_live = tk.Label(box, text="实时输出：—", anchor="w",
-                                     font=("Segoe UI", 9), fg="#1565c0")
+        self.l_speed_live = lbl(box_body, "实时输出：—", fg=UI["primary"], anchor="w")
         self.l_speed_live.pack(fill="x")
-        self.l_health = tk.Label(box, text="后端：—", anchor="w", font=("Segoe UI", 9), fg="#a0a0a0")
-        self.l_health.pack(fill="x")
-        self.l_models = tk.Label(box, text="模型：—", anchor="w", font=("Segoe UI", 9), fg="#a0a0a0")
+        self.l_health = lbl(box_body, "后端：—", fg=UI["text_hint"], anchor="w")
+        self.l_health.pack(fill="x", pady=(6, 0))
+        self.l_models = lbl(box_body, "模型：—", fg=UI["text_hint"], anchor="w")
         self.l_models.pack(fill="x")
         # 限流警告：实时反映桥接的 429 自动冷却 / 指数退避重试保护状态
-        self.l_rl = tk.Label(box, text="限流：—", anchor="w", font=("Segoe UI", 9), fg="#a0a0a0")
+        self.l_rl = lbl(box_body, "限流：—", fg=UI["text_hint"], anchor="w")
         self.l_rl.pack(fill="x")
 
-        cost = tk.LabelFrame(top_row, text="费用估算 · 省钱", font=("Segoe UI", 10, "bold"),
-                             padx=8, pady=4, bd=1)
-        cost.pack(side="left", fill="both", expand=True, padx=6)
-        prow = tk.Frame(cost)
+        cost, cost_body = card(top_row, "费用估算 · 省钱")
+        cost.pack(side="left", fill="both", expand=True, padx=8)
+        prow = tk.Frame(cost_body, bg=UI["card"])
         prow.pack(fill="x")
-        self.btn_price = tk.Button(prow, text="更新价格", width=8, command=self._fetch_price_now,
-                                   bg="#6a1b9a", fg="white", activebackground="#4a148c",
-                                   activeforeground="white")
+        self.btn_price = btn(prow, "更新价格", self._fetch_price_now, 8)
         self.btn_price.pack(side="left")
-        self.l_saved = tk.Label(cost, text="学校为你节省了 ¥0.00（累计）", anchor="w",
-                                font=("Segoe UI", 11, "bold"), fg="#0b8043")
-        self.l_saved.pack(fill="x")
+        self.l_saved = lbl(cost_body, "学校为你节省了 ¥0.00（累计）", anchor="w",
+                           font=(FONT_FAMILY, 11, "bold"), fg=UI["success"])
+        self.l_saved.pack(fill="x", pady=(6, 0))
         # 累计 tokens 总量（学校为你节省这行下面再一行）
-        self.l_tokens_total = tk.Label(cost, text="累计消耗：— tokens", anchor="w",
-                                       font=("Segoe UI", 9), fg="#333")
-        self.l_tokens_total.pack(fill="x")
+        self.l_tokens_total = lbl(cost_body, "累计消耗：— tokens", anchor="w")
+        self.l_tokens_total.pack(fill="x", pady=(6, 0))
         # 今日消耗（本地 0 点至今，跟「24小时」图的起点同口径）
-        self.l_tokens_today = tk.Label(cost, text="今日消耗：— tokens", anchor="w",
-                                       font=("Segoe UI", 9), fg="#333")
+        self.l_tokens_today = lbl(cost_body, "今日消耗：— tokens", anchor="w")
         self.l_tokens_today.pack(fill="x")
         # 缓存命中（prompt cache）：上游 usage 的 prompt_cache_hit_tokens。
         # 一行放不下「命中数 + 总量 + 命中率 + 命中次数」，所以用两行（今日 / 累计）。
-        self.l_cache = tk.Label(cost, text="缓存命中：—", anchor="w", justify="left",
-                                font=("Segoe UI", 9), fg="#00695c")
-        self.l_cache.pack(fill="x")
+        self.l_cache = lbl(cost_body, "缓存命中：—", anchor="w", justify="left",
+                           fg=UI["teal"])
+        self.l_cache.pack(fill="x", pady=(6, 0))
         # 官方峰/谷状态：峰值=波峰(红加粗“梁文峰”)，空闲=波谷(绿加粗“梁文谷”)
-        pkrow = tk.Frame(cost)
+        pkrow = tk.Frame(cost_body, bg=UI["card"])
         pkrow.pack(fill="x")
-        tk.Label(pkrow, text="官方当前是：", anchor="w", font=("Segoe UI", 9), fg="#555").pack(side="left")
-        self.l_peak_state = tk.Label(pkrow, text="…", font=("Segoe UI", 10, "bold"))
+        lbl(pkrow, "官方当前是：", fg=UI["text_secondary"], anchor="w").pack(side="left")
+        self.l_peak_state = tk.Label(pkrow, text="…", bg=UI["card"],
+                                     font=(FONT_FAMILY, 10, "bold"))
         self.l_peak_state.pack(side="left")
-        self.l_price = tk.Label(cost, text="官方价：未获取", anchor="w",
-                                font=("Segoe UI", 8), fg="#555")
-        self.l_price.pack(fill="x")
+        self.l_price = lbl(cost_body, "官方价：未获取", anchor="w", font=F_SMALL,
+                           fg=UI["text_secondary"])
+        self.l_price.pack(fill="x", pady=(6, 0))
         # 空闲/高峰时段 + 是否已联网更新：独立一行（原与价格挤一行、太长）
-        self.l_price_note = tk.Label(cost, text="空闲时段 …", anchor="w",
-                                     font=("Segoe UI", 8), fg="#777")
+        self.l_price_note = lbl(cost_body, "空闲时段 …", anchor="w", font=F_SMALL,
+                                fg=UI["text_secondary"])
         self.l_price_note.pack(fill="x")
 
-        cfg = tk.LabelFrame(top_row, text="连接配置", font=("Segoe UI", 10, "bold"),
-                            padx=8, pady=4, bd=1)
-        cfg.pack(side="left", fill="both", expand=True, padx=(6, 0))
+        cfg, cfg_body = card(top_row, "连接配置")
+        cfg.pack(side="left", fill="both", expand=True, padx=(8, 0))
         cdata = load_config()
 
         def cfg_row(label, var):
-            r = tk.Frame(cfg)
-            r.pack(fill="x", pady=1)
+            r = tk.Frame(cfg_body, bg=UI["card"])
+            r.pack(fill="x", pady=2)
             # 宽度给足：中文是双宽字符，width=5 会裁掉「本地ANTH」这类较长前缀（被 URL 前的文字遮挡）
-            tk.Label(r, text=label, width=11, anchor="w", font=("Segoe UI", 8)).pack(side="left")
-            tk.Entry(r, textvariable=var, font=("Consolas", 8)).pack(
-                side="left", fill="x", expand=True, ipady=1)
-            tk.Button(r, text="复制", width=4, command=lambda v=var: (
+            lbl(r, label, width=11, anchor="w", font=F_SMALL,
+                fg=UI["text_secondary"]).pack(side="left")
+            entry(r, var).pack(side="left", fill="x", expand=True, ipady=2)
+            btn(r, "复制", lambda v=var: (
                 self.clipboard_clear(), self.clipboard_append(v.get()), self.update()
-            )).pack(side="left", padx=2)
+            ), 4, font=F_SMALL).pack(side="left", padx=(6, 0))
 
         self._c_key = tk.StringVar(value=str(cdata.get("local_api_key", "")))
         # 模型：直接放**上游抓到的真实模型名**（_set_model_choices 每轮健康检查时校正）。
@@ -1089,89 +1182,93 @@ class HainnuGUI(tk.Tk):
         cfg_row("本地ANTH", self._c_url_an)
         cfg_row("Key", self._c_key)
 
-        mrow = tk.Frame(cfg)
-        mrow.pack(fill="x", pady=1)
-        tk.Label(mrow, text="模型", width=11, anchor="w",
-                 font=("Segoe UI", 8)).pack(side="left")
-        mhold = tk.Frame(mrow)
+        mrow = tk.Frame(cfg_body, bg=UI["card"])
+        mrow.pack(fill="x", pady=2)
+        lbl(mrow, "模型", width=11, anchor="w", font=F_SMALL,
+            fg=UI["text_secondary"]).pack(side="left")
+        mhold = tk.Frame(mrow, bg=UI["card"])
         mhold.pack(side="left", fill="x", expand=True)
         self._c_mod_user_edited = False      # True = 用户手改过，别再自动填
-        self._c_mod_entry = tk.Entry(mhold, textvariable=self._c_mod, font=("Consolas", 8))
+        self._c_mod_entry = entry(mhold, self._c_mod)
         self._c_mod_box = ttk.Combobox(mhold, textvariable=self._c_mod,
-                                       font=("Consolas", 8), values=[])
+                                       font=F_MONO_S, values=[],
+                                       style="Feishu.TCombobox")
         for _w in (self._c_mod_entry, self._c_mod_box):
             _w.bind("<KeyRelease>", self._on_mod_edited)
         self._c_mod_box.bind("<<ComboboxSelected>>", self._on_mod_edited)
-        self._c_mod_entry.pack(fill="x", ipady=1)     # 默认先按单模型显示
+        self._c_mod_entry.pack(fill="x", ipady=2)     # 默认先按单模型显示
         # 手动刷新：直接问桥要一次 /v1/models（桥会强制刷新自己的缓存并回上游真名）
-        tk.Button(mrow, text="刷新", width=4, command=self._reload_models).pack(
-            side="left", padx=2)
+        btn(mrow, "刷新", self._reload_models, 4, font=F_SMALL).pack(
+            side="left", padx=(6, 0))
 
         cfg_row("端口", self._c_port)
-        self._cfg_status = tk.Label(cfg, text="改后点「保存」，重启代理生效。",
-                                    anchor="w", font=("Segoe UI", 8), fg="#888")
-        self._cfg_status.pack(fill="x", pady=(2, 0))
+        self._cfg_status = lbl(cfg_body, "改后点「保存」，重启代理生效。",
+                               anchor="w", font=F_SMALL, fg=UI["text_hint"])
+        self._cfg_status.pack(fill="x", pady=(4, 0))
         # 模型那一行的说明（数量/来源/是否与上游脱节）
-        self._cfg_model_note = tk.Label(
-            cfg, text="模型来自学校上游，正在读取…",
-            anchor="w", font=("Segoe UI", 8), fg="#888", wraplength=250, justify="left")
+        self._cfg_model_note = lbl(cfg_body, "模型来自学校上游，正在读取…",
+                                   anchor="w", font=F_SMALL, fg=UI["text_hint"],
+                                   wraplength=250, justify="left")
         self._cfg_model_note.pack(fill="x")
-        tk.Button(cfg, text="保存", width=10, command=self._save_config_inline).pack(anchor="w", pady=2)
+        btn(cfg_body, "保存", self._save_config_inline, 10, kind="primary",
+            font=(FONT_FAMILY, 9, "bold")).pack(anchor="w", pady=(8, 0))
 
         # 控制按钮
-        ctrl = tk.Frame(self)
+        ctrl = tk.Frame(self, bg=UI["bg"])
         ctrl.pack(fill="x", **pad)
-        self.btn_start = tk.Button(ctrl, text="▶ 启动代理", width=12,
-                                   command=self._start_proxy,
-                                   bg="#2d7ff9", fg="white", activebackground="#1f66cc",
-                                   activeforeground="white")
+        self.btn_start = btn(ctrl, "▶ 启动代理", self._start_proxy, 12,
+                             kind="primary", font=(FONT_FAMILY, 9, "bold"))
         self.btn_start.pack(side="left")
-        self.btn_stop = tk.Button(ctrl, text="■ 停止代理", width=12, command=self._stop_proxy)
+        self.btn_stop = btn(ctrl, "■ 停止代理", self._stop_proxy, 12)
         self.btn_stop.pack(side="left", padx=6)
-        self.btn_restart = tk.Button(ctrl, text="↻ 重启代理", width=12,
-                                     command=self._restart_proxy)
+        self.btn_restart = btn(ctrl, "↻ 重启代理", self._restart_proxy, 12)
         self.btn_restart.pack(side="left")
-        self.btn_auto = tk.Button(ctrl, text="启用开机自启", width=14, command=self._toggle_autostart)
-        self.btn_auto.pack(side="left", padx=12)
+        self.btn_auto = btn(ctrl, "启用开机自启", self._toggle_autostart, 14)
+        self.btn_auto.pack(side="left", padx=(12, 0))
         # 令牌按钮区（右侧一组）：灰字提示 | 获取令牌 | 备用登录
-        tframe = tk.Frame(ctrl)
+        tframe = tk.Frame(ctrl, bg=UI["bg"])
         tframe.pack(side="right")
         self.l_token_hint = tk.Label(tframe, anchor="e", justify="right",
-                                     fg="#999", font=("Microsoft YaHei UI", 8),
+                                     fg=UI["text_hint"], bg=UI["bg"], font=F_SMALL,
                                      text="请不要将cookie或您的程序发给别人，本平台不会上传您的信息。")
         self.l_token_hint.pack(side="left", padx=(0, 8))
-        self.btn_token = tk.Button(tframe, text="获取令牌(浏览器登录)", width=18,
-                                   command=self._get_token)
+        self.btn_token = btn(tframe, "获取令牌(浏览器登录)", self._get_token, 18,
+                             kind="primary", font=(FONT_FAMILY, 9, "bold"))
         self.btn_token.pack(side="left")
-        self.btn_legacy = tk.Button(tframe, text="备用登录", width=10,
-                                    command=self._get_token_legacy)
+        self.btn_legacy = btn(tframe, "备用登录", self._get_token_legacy, 10)
         self.btn_legacy.pack(side="left", padx=6)
 
         # 底部一行：自检 / 刷新
-        foot = tk.Frame(self)
+        foot = tk.Frame(self, bg=UI["bg"])
         foot.pack(fill="x", **pad)
-        self.btn_check = tk.Button(foot, text="健康自检", width=12, command=self._health_now)
+        self.btn_check = btn(foot, "健康自检", self._health_now, 12)
         self.btn_check.pack(side="left")
-        self.btn_refresh = tk.Button(foot, text="刷新", width=8, command=self._health_now)
+        self.btn_refresh = btn(foot, "刷新", self._health_now, 8)
         self.btn_refresh.pack(side="left", padx=6)
-        self.txt = tk.Label(foot, text="", fg="#2e7d32", anchor="w", font=("Segoe UI", 9))
+        self.txt = tk.Label(foot, text="", fg=UI["success"], bg=UI["bg"],
+                            anchor="w", font=F_BODY)
         self.txt.pack(side="left", fill="x", expand=True, padx=10)
 
         # 用量面板
-        use = tk.LabelFrame(self, text="历史令牌流量（tokens）", font=("Segoe UI", 10, "bold"),
-                            padx=10, pady=6, bd=1)
+        use, use_body = card(self, "历史令牌流量（tokens）")
         use.pack(fill="both", expand=True, **pad)
-        row = tk.Frame(use)
+        row = tk.Frame(use_body, bg=UI["card"])
         row.pack(fill="x")
         self.var_win = tk.StringVar(value="24小时")
         for name, _sec, _nb in WINDOWS:
             tk.Radiobutton(row, text=name, variable=self.var_win, value=name,
-                           command=self._on_window, font=("Segoe UI", 9)).pack(side="left")
-        self.l_sum = tk.Label(row, text="总计 — · 请求 —", font=("Segoe UI", 9), fg="#666")
+                           command=self._on_window, font=F_BODY,
+                           bg=UI["card"], fg=UI["text_regular"],
+                           activebackground=UI["card"], activeforeground=UI["text_main"],
+                           selectcolor="#FFFFFF", highlightthickness=0,
+                           cursor="hand2").pack(side="left")
+        self.l_sum = tk.Label(row, text="总计 — · 请求 —", font=F_BODY,
+                              bg=UI["card"], fg=UI["text_secondary"])
         self.l_sum.pack(side="right")
 
-        self.canvas = tk.Canvas(use, bg="white", height=240, highlightthickness=1,
-                                highlightbackground="#ddd")
+        self.canvas = tk.Canvas(use_body, bg=UI["card"], height=240,
+                                highlightthickness=1,
+                                highlightbackground=UI["border"])
         self.canvas.pack(fill="both", expand=True, pady=(4, 0))
 
         self._draw_empty()
@@ -1234,17 +1331,17 @@ class HainnuGUI(tk.Tk):
         if note is None:
             return
         if not ids:
-            note.config(text="还没取到上游模型列表（桥离线或尚未就绪）。", fg="#888")
+            note.config(text="还没取到上游模型列表（桥离线或尚未就绪）。", fg=UI["text_hint"])
         elif switched:
             note.config(text=f"⚠ 原配置的 {orig} 已不在上游列表中，已切到 {cur}。",
-                        fg="#ef6c00")
+                        fg=UI["warning"])
         elif cur and cur not in ids:
             note.config(text=f"当前手填的 {cur} 不在上游列表中；桥会按名字匹配，"
-                             "匹配不上会自动兜底。", fg="#ef6c00")
+                             "匹配不上会自动兜底。", fg=UI["warning"])
         elif multi:
-            note.config(text=f"上游共 {len(ids)} 个模型，可下拉选择，也可自行修改。", fg="#888")
+            note.config(text=f"上游共 {len(ids)} 个模型，可下拉选择，也可自行修改。", fg=UI["text_hint"])
         else:
-            note.config(text="上游当前只有这一个模型（可自行修改）。", fg="#888")
+            note.config(text="上游当前只有这一个模型（可自行修改）。", fg=UI["text_hint"])
 
     def _reload_models(self) -> None:
         """手动刷新模型下拉：直接问桥要一次 /v1/models（桥会强制刷新自己的缓存）。"""
@@ -1252,7 +1349,7 @@ class HainnuGUI(tk.Tk):
         key = self._c_key.get().strip() or "sk-hainnu"
         note = getattr(self, "_cfg_model_note", None)
         if note is not None:
-            note.config(text="正在取上游模型列表…", fg="#555")
+            note.config(text="正在取上游模型列表…", fg=UI["text_secondary"])
 
         def work():
             try:
@@ -1275,7 +1372,7 @@ class HainnuGUI(tk.Tk):
             try:
                 port = int(self._c_port.get().strip())
             except ValueError:
-                self._cfg_status.config(text="端口必须是数字", fg="#c62828")
+                self._cfg_status.config(text="端口必须是数字", fg=UI["danger"])
                 return
             d = load_config()
             # 不改上游 URL（config.json 的 upstream 保留原值）
@@ -1291,9 +1388,9 @@ class HainnuGUI(tk.Tk):
                 self.health_url_probe = f"http://127.0.0.1:{port}/health?probe=1"
                 self._c_url_oai.set(f"http://127.0.0.1:{port}/v1")
                 self._c_url_an.set(f"http://127.0.0.1:{port}/v1/messages")
-            self._cfg_status.config(text="已保存；重启代理后生效。", fg="#2e7d32")
+            self._cfg_status.config(text="已保存；重启代理后生效。", fg=UI["success"])
         except Exception as exc:  # noqa: BLE001
-            self._cfg_status.config(text=f"保存失败：{exc}", fg="#c62828")
+            self._cfg_status.config(text=f"保存失败：{exc}", fg=UI["danger"])
 
     def _greet_suffix(self):
         """顶部问候后缀：按时段问候 +「，姓名/学号。」。
@@ -1340,7 +1437,7 @@ class HainnuGUI(tk.Tk):
         pk = beijing_peak()
         self.l_peak_state.config(
             text="梁文峰" if pk else "梁文谷",
-            fg="#d32f2f" if pk else "#2e7d32")
+            fg=UI["danger"] if pk else UI["success"])
 
     # ---------------------------------------------------------------- 后台循环
 
@@ -1370,9 +1467,9 @@ class HainnuGUI(tk.Tk):
                 if kind == "health":
                     self._apply_health(payload)
                 elif kind == "status":
-                    self.txt.config(text=payload, fg="#2e7d32")
+                    self.txt.config(text=payload, fg=UI["success"])
                 elif kind == "status_err":
-                    self.txt.config(text=payload, fg="#c62828")
+                    self.txt.config(text=payload, fg=UI["danger"])
                 elif kind == "autostart":
                     self.btn_auto.config(text=payload)
                 elif kind == "price":
@@ -1380,13 +1477,13 @@ class HainnuGUI(tk.Tk):
                     self._update_savings()
                 elif kind == "price_err":
                     self._refresh_price_label()
-                    self.l_price.config(text="官方价：" + payload, fg="#c62828")
+                    self.l_price.config(text="官方价：" + payload, fg=UI["danger"])
                 elif kind == "models":
                     self._set_model_choices(payload)
                 elif kind == "models_err":
                     note = getattr(self, "_cfg_model_note", None)
                     if note is not None:
-                        note.config(text=f"取模型失败：{payload[:70]}", fg="#c62828")
+                        note.config(text=f"取模型失败：{payload[:70]}", fg=UI["danger"])
         except queue.Empty:
             pass
         self._refresh_usage()
@@ -1406,7 +1503,7 @@ class HainnuGUI(tk.Tk):
             rem = self._rl_restart_at - time.time()
             if rem > 0:
                 self.l_rl.config(text=f"限流：⚠ 限流中，{int(rem)}s 后自动重启代理",
-                                 fg="#c62828")
+                                 fg=UI["danger"])
             else:
                 self._rl_restart_at = 0.0
                 self._auto_restart_proxy()
@@ -1447,27 +1544,29 @@ class HainnuGUI(tk.Tk):
         # 实时输出速度（桥接流式转发时按内容估算，只计输出，接近 harness 读数）
         _ov = data.get("output_speed", 0.0) or 0.0
         if data.get("output_active"):
-            self.l_speed_live.config(text=f"实时输出：{_ov:,.1f} tok/s（出字中）", fg="#0d47a1")
+            self.l_speed_live.config(text=f"实时输出：{_ov:,.1f} tok/s（出字中）",
+                                     fg=UI["primary_dark"])
         elif _ov > 0:
-            self.l_speed_live.config(text=f"实时输出：上次 {_ov:,.1f} tok/s", fg="#1565c0")
+            self.l_speed_live.config(text=f"实时输出：上次 {_ov:,.1f} tok/s",
+                                     fg=UI["primary"])
         else:
-            self.l_speed_live.config(text="实时输出：—（空闲）", fg="#9e9e9e")
+            self.l_speed_live.config(text="实时输出：—（空闲）", fg=UI["text_hint"])
         # 学校后端状态独立一行：有 probe 结果就刷新（并记住最新结果）；
         # 常规轮询（无 upstream_chat）时**保留**上一次上游自检结果，不覆盖回“—”。
         chat = data.get("upstream_chat")
         if chat:
             if chat.get("ok"):
                 dt = chat.get("elapsed")
-                self._backend_state = ("学校后端：正常（%ss 出字）" % dt, "#2e7d32")
+                self._backend_state = ("学校后端：正常（%ss 出字）" % dt, UI["success"])
             else:
                 detail = chat.get("detail") or chat.get("error") or "无"
-                self._backend_state = ("学校后端：异常（%s）" % detail[:60], "#c62828")
+                self._backend_state = ("学校后端：异常（%s）" % detail[:60], UI["danger"])
         if self._backend_state:
             txt, fg = self._backend_state
             self.l_health.config(text=txt, fg=fg)
         else:
             self.l_health.config(text="学校后端：—（待自检，每~60s自动）",
-                                 fg="#9e9e9e")
+                                 fg=UI["text_hint"])
         models = data.get("models") or []
         self.l_models.config(text=f"模型：{len(models)} 个 · {', '.join(models[:3])}"
                              + ("..." if len(models) > 3 else ""))
@@ -1477,19 +1576,19 @@ class HainnuGUI(tk.Tk):
         _now = time.time()
         if data.get("rate_limited_now"):
             self._rl_state = self._flash_rate(
-                "now", "⚠ 上游限流(429)中，已自动冷却，稍后自动重启代理", "#c62828")
+                "now", "⚠ 上游限流(429)中，已自动冷却，稍后自动重启代理", UI["danger"])
             self._schedule_rl_restart(data)   # 安排一次“定时”自动重启（保守）
-            self.l_rl.config(text="限流：⚠ 限流中，稍后自动重启代理", fg="#c62828")
+            self.l_rl.config(text="限流：⚠ 限流中，稍后自动重启代理", fg=UI["danger"])
         elif data.get("rate_last_ts") and (_now - float(data["rate_last_ts"])
                                             < max(120, 2 * (data.get("rate_cooldown_secs") or 12))):
             self._rl_state = self._flash_rate(
-                "recent", "限流预警：近期触发过 429，已自动错峰＋重试", "#ef6c00")
+                "recent", "限流预警：近期触发过 429，已自动错峰＋重试", UI["warning"])
             self.l_rl.config(text="限流：近期触发过 429，已自动错峰＋重试",
-                             fg="#ef6c00")
+                             fg=UI["warning"])
         else:
             self._rl_state = "ok"
             self.l_rl.config(text="限流：正常（429 自动冷却＋指数退避重试已开启）",
-                             fg="#2e7d32")
+                             fg=UI["success"])
 
     def _flash_rate(self, new: str, msg: str, color: str) -> str:
         """限流状态转变时，让底部状态条高亮提示（避免只有边角小字看不见）。"""
@@ -1548,8 +1647,8 @@ class HainnuGUI(tk.Tk):
     def _set_status(self, on: bool):
         c = self.status_dot
         c.delete("all")
-        color = "#4caf50" if on else "#e53935"
-        c.create_oval(2, 2, 14, 14, fill=color, outline="")
+        color = UI["success"] if on else UI["danger"]
+        c.create_oval(3, 3, 13, 13, fill=color, outline="")
         self.status_txt.config(text="在线" if on else "离线", fg=color)
 
     def _health_now(self):
@@ -1914,10 +2013,10 @@ class HainnuGUI(tk.Tk):
             self.l_cache.config(
                 text=("缓存命中：今日 " + fmt_cache_line(_ct)
                       + "\n　　　　　累计 " + fmt_cache_line(_ca)),
-                fg="#00695c")
+                fg=UI["teal"])
         else:
             self.l_cache.config(
-                text="缓存命中：暂无缓存信息（重启代理后，新请求才会记录）", fg="#888")
+                text="缓存命中：暂无缓存信息（重启代理后，新请求才会记录）", fg=UI["text_hint"])
         self._draw_line(bins, bout, brate, (hit_t, miss_t))
         self._update_savings()
         self._refresh_price_label()
@@ -1930,7 +2029,7 @@ class HainnuGUI(tk.Tk):
         self._render_hover()      # 清掉竖线/浮窗
         W = max(c.winfo_width(), 400)
         H = max(c.winfo_height(), 160)
-        c.create_text(W / 2, H / 2, text="正在加载用量数据…", fill="#888")
+        c.create_text(W / 2, H / 2, text="正在加载用量数据…", fill=UI["text_hint"])
 
     def _draw_line(self, bins, bout, brate=None, rate_totals=None):
         """折线图：输入(蓝)/输出(橙)/缓存命中率(紫) —— 三条同一套画法。
@@ -1957,7 +2056,7 @@ class HainnuGUI(tk.Tk):
         out_peak = hbout or (bout[-1] if n else 0)
         if not (in_peak or out_peak):   # 输入/输出均为空 → 暂无数据
             c.create_text(pad_l + cw / 2, pad_t + ch / 2,
-                          text="（该时间窗暂无用量数据）", fill="#888", font=("Segoe UI", 10))
+                          text="（该时间窗暂无用量数据）", fill=UI["text_hint"], font=F_BODY)
             return
         # 双纵轴：输入(左) 与 输出(右) 各自独立量程，输出不再被输入的量级压扁。
         # 量程只看“已定历史桶”(排除正在增长的最新桶) → 新数据只抬高最右桶，旧曲线保持原样。
@@ -1987,72 +2086,72 @@ class HainnuGUI(tk.Tk):
         if len(cur) > 1:
             rsegs_raw.append(cur)
         rsegs = [smooth_line(s, 32) for s in rsegs_raw]
-        COLOR_RATE = "#8e24aa"
+        COLOR_RATE = UI["chart_rate"]
         # 抗锯齿渲染：垂直色柱填充 + 平滑曲线（Pillow 3×超采样 + LANCZOS 缩回）
         if ensure_pillow():
             img = self._render_chart(pin, pout, pad_l, pad_l + cw, pad_t,
-                                     base, "#e3eeff", "#fff1dd", "#2d7ff9", "#f08c00",
-                                     rsegs, COLOR_RATE, "#f3e6fa")
+                                     base, UI["chart_fill_in"], UI["chart_fill_out"], UI["primary"], UI["chart_out"],
+                                     rsegs, COLOR_RATE, UI["chart_fill_rate"])
             self._photo_ref = self._make_photo(img)
             c.create_image(pad_l, pad_t, image=self._photo_ref, anchor="nw")
         else:
             # 兜底：无 Pillow 时退化为普通平滑折线（无抗锯齿、无垂直色柱）
-            c.create_line(pin, width=2, fill="#2d7ff9")
-            c.create_line(pout, width=2, fill="#f08c00")
+            c.create_line(pin, width=2, fill=UI["primary"])
+            c.create_line(pout, width=2, fill=UI["chart_out"])
             for seg in rsegs:
                 c.create_line(seg, width=2, fill=COLOR_RATE)
         # 左纵轴(输入)刻度 + 基线
-        c.create_line(pad_l, base, pad_l + cw, base, fill="#bbb")
+        c.create_line(pad_l, base, pad_l + cw, base, fill=UI["border"])
         for f in (0.0, 0.25, 0.5, 0.75, 1.0):
             gv = f * top_in
             gy = pad_t + (1 - f) * (ch - 16)
             c.create_line(pad_l, gy, pad_l + cw, gy,
-                          fill=("#bbb" if f == 0 else "#eee"))
+                          fill=(UI["border"] if f == 0 else UI["divider"]))
             if f > 0:
                 c.create_text(pad_l - 8, gy, text=fmt_tokens(gv), anchor="e",
-                              fill="#888", font=("Segoe UI", 8))
+                              fill=UI["text_hint"], font=F_SMALL)
         c.create_text(pad_l - 8, base, text="0", anchor="e",
-                      fill="#888", font=("Segoe UI", 8))
+                      fill=UI["text_hint"], font=F_SMALL)
         # 右纵轴(输出)：右侧边框 + 独立刻度（橙色，对应输出曲线）
         rx = pad_l + cw
-        c.create_line(rx, pad_t, rx, base, fill="#ddb")
+        c.create_line(rx, pad_t, rx, base, fill=UI["border"])
         for f in (0.0, 0.25, 0.5, 0.75, 1.0):
             gv = f * top_out
             gy = pad_t + (1 - f) * (ch - 16)
             if f > 0:
                 c.create_text(rx + 5, gy, text=fmt_tokens(gv), anchor="w",
-                              fill="#e08a00", font=("Segoe UI", 8))
+                              fill=UI["chart_out"], font=F_SMALL)
         c.create_text(rx + 5, base, text="0", anchor="w",
-                      fill="#e08a00", font=("Segoe UI", 8))
+                      fill=UI["chart_out"], font=F_SMALL)
         # 右起第二条轴：缓存命中率（紫，0~100%）。跟输出轴完全同一套画法。
         rx2 = rx + 54
-        c.create_line(rx2, pad_t, rx2, base, fill="#e2cfe8")
+        c.create_line(rx2, pad_t, rx2, base, fill=UI["border"])
         for f in (0.0, 0.25, 0.5, 0.75, 1.0):
             gv = f * 100.0
             gy = pad_t + (1 - f) * (ch - 16)
             if f > 0:
                 c.create_text(rx2 + 5, gy, text=f"{gv:.0f}%", anchor="w",
-                              fill="#8e24aa", font=("Segoe UI", 8))
+                              fill=UI["chart_rate"], font=F_SMALL)
         c.create_text(rx2 + 5, base, text="0%", anchor="w",
-                      fill="#8e24aa", font=("Segoe UI", 8))
+                      fill=UI["chart_rate"], font=F_SMALL)
         # 三轴名：放在绘图区上沿的留白里（pad_t-12，刻度/图例都在其下方），不遮挡量尺
-        c.create_text(pad_l / 2 + 10, pad_t - 12, text="输入(左轴)", fill="#2d7ff9",
-                      font=("Segoe UI", 8, "bold"))
-        c.create_text(rx + 5, pad_t - 12, text="输出", fill="#f08c00",
-                      font=("Segoe UI", 8, "bold"))
-        c.create_text(rx2 + 5, pad_t - 12, text="命中率", fill="#8e24aa",
-                      font=("Segoe UI", 8, "bold"))
+        c.create_text(pad_l / 2 + 10, pad_t - 12, text="输入(左轴)", fill=UI["primary"],
+                      font=F_SMALL_B)
+        c.create_text(rx + 5, pad_t - 12, text="输出", fill=UI["chart_out"],
+                      font=F_SMALL_B)
+        c.create_text(rx2 + 5, pad_t - 12, text="命中率", fill=UI["chart_rate"],
+                      font=F_SMALL_B)
         # 图例：三条各占一行，样式完全一致
-        c.create_line(pad_l + 6, pad_t + 6, pad_l + 26, pad_t + 6, fill="#2d7ff9", width=2)
+        c.create_line(pad_l + 6, pad_t + 6, pad_l + 26, pad_t + 6, fill=UI["primary"], width=2)
         c.create_text(pad_l + 30, pad_t + 6, text="输入", anchor="w",
-                      fill="#444", font=("Segoe UI", 8))
-        c.create_line(pad_l + 6, pad_t + 18, pad_l + 26, pad_t + 18, fill="#f08c00", width=2)
+                      fill=UI["text_secondary"], font=F_SMALL)
+        c.create_line(pad_l + 6, pad_t + 18, pad_l + 26, pad_t + 18, fill=UI["chart_out"], width=2)
         c.create_text(pad_l + 30, pad_t + 18, text="输出", anchor="w",
-                      fill="#444", font=("Segoe UI", 8))
+                      fill=UI["text_secondary"], font=F_SMALL)
         c.create_line(pad_l + 6, pad_t + 30, pad_l + 26, pad_t + 30,
                       fill=COLOR_RATE, width=2)
         c.create_text(pad_l + 30, pad_t + 30, text="缓存命中率", anchor="w",
-                      fill="#444", font=("Segoe UI", 8))
+                      fill=UI["text_secondary"], font=F_SMALL)
         # 横轴时间点：锚定窗标绝对时段起点；1h 滑动窗标相对当前时刻的时段起点
         now = time.time()
         step = int(sec / n)
@@ -2072,14 +2171,14 @@ class HainnuGUI(tk.Tk):
             start = (k_start + i) * step - tzoff          # 第 i 桶的墙钟起点(UTC epoch)
             lbl = time.strftime(fmt, time.localtime(start))
             c.create_text(x_i(i), base + 12, text=lbl, anchor="n",
-                          fill="#666", font=("Segoe UI", 8))
+                          fill=UI["text_secondary"], font=F_SMALL)
         # 底部汇总（跟原来同一行，同一种分隔符风格）
         _sumb = ("输入 " + fmt_tokens(sum(bins)) + " / 输出 " + fmt_tokens(sum(bout)))
         if rate_totals and sum(rate_totals) > 0:
             _h, _m = rate_totals
             _sumb += f" / 命中率 {_h / (_h + _m) * 100:.1f}%"
         c.create_text(pad_l + cw / 2, base + 36, text=_sumb,
-                      fill="#666", font=("Segoe UI", 8))
+                      fill=UI["text_secondary"], font=F_SMALL)
         # 悬停提示数据（含图内几何信息）+ 绑定鼠标事件：灰色竖线跟随鼠标；最邻近桶无数据时只画竖线
         self._chart_data = (bins, bout, brate, n, pad_l, cw, step, sec, pad_t, base)
         c.bind("<Motion>", self._chart_hover)
@@ -2115,7 +2214,7 @@ class HainnuGUI(tk.Tk):
             return
         # 竖线紧随鼠标 X（不再吸到桶中心），跨越图区
         mx = getattr(self, "_chart_hover_x", pad_l + (i + 0.5) * (cw / n))
-        c.create_line(mx, pad_t, mx, base, fill="#b0b0b0", width=1, tags="hline")
+        c.create_line(mx, pad_t, mx, base, fill=UI["text_hint"], width=1, tags="hline")
         _rt = brate[i] if (brate and i < len(brate)) else None
         if not (bins[i] or bout[i] or _rt is not None):   # 该桶完全没数据 → 不显示浮窗
             return
@@ -2138,10 +2237,10 @@ class HainnuGUI(tk.Tk):
         ww = c.winfo_width()
         bw = 250
         bx = min(mx + 14 + bw, ww - 4) - bw
-        c.create_rectangle(bx, my - 26, bx + bw, my + 2, fill="#1f2937",
-                           outline="#111", tags="tip")
+        c.create_rectangle(bx, my - 26, bx + bw, my + 2, fill=UI["text_main"],
+                           outline=UI["text_main"], tags="tip")
         c.create_text(bx + 6, my - 12, text=txt, anchor="w",
-                      fill="#fff", font=("Segoe UI", 8), tags="tip")
+                      fill="#FFFFFF", font=F_SMALL, tags="tip")
 
     def _chart_leave(self, event=None):
         self._chart_hover_i = None
@@ -2149,7 +2248,7 @@ class HainnuGUI(tk.Tk):
 
     def _render_chart(self, pin, pout, xl, xr, yt, base_y,
                       fill_in, fill_out, color_in, color_out,
-                      rsegs=None, color_rate="#8e24aa", fill_rate="#f3e6fa"):
+                      rsegs=None, color_rate=UI["chart_rate"], fill_rate=UI["chart_fill_rate"]):
         """Pillow 3×超采样 + LANCZOS 缩回：垂直色柱填充(两侧/峰谷为竖直墙) + 抗锯齿平滑曲线。
 
         三条曲线同一套画法：各自色柱填充 + 平滑曲线。`rsegs` 是命中率的折线段列表
@@ -2271,8 +2370,8 @@ class HainnuGUI(tk.Tk):
         when += "（北京" + time.strftime("%H:%M", time.gmtime(time.time() + 8 * 3600)) + "）"
         self.l_price.config(
             text=f"官方价(deepseek-flash)：混合输入 ¥{in_p:.3g}/百万（{_src}）· 输出 ¥{out_p:g}/百万",
-            fg="#555")
-        self.l_price_note.config(text=f"{when} · 来源 {self._price_origin()}", fg="#777")
+            fg=UI["text_secondary"])
+        self.l_price_note.config(text=f"{when} · 来源 {self._price_origin()}", fg=UI["text_secondary"])
 
     def _persist_savings(self):
         try:
@@ -2404,4 +2503,5 @@ if __name__ == "__main__":
     except Exception:  # noqa: BLE001
         pass
     HainnuGUI().mainloop()
+
 
