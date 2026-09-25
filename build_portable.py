@@ -118,6 +118,7 @@ PRIVATE_REGEXES = (
 ALLOW_MISSING = {
     "token.txt", "opencode.jsonc", "python.exe", "pythonw.exe",
     "1.get-token.bat", "2.start-proxy.bat", "0.install-deps.bat",   # 0 号 bat 注释里的旧英文名
+    "hainnu_deps.txt",       # 2.启动代理.bat 写到 %TEMP% 的临时文件，运行时自己产生
 }
 TEXT_EXT = (".py", ".bat", ".vbs", ".ps1", ".md", ".txt", ".json", ".cfg", ".ini", ".yaml", ".yml")
 
@@ -316,12 +317,19 @@ def build(out_name: str, with_runtime: bool) -> Path:
 
 
 def main() -> int:
+    args = sys.argv[1:]
     print("=" * 62)
     print("打包 hainnu-proxy（不含实验/测试产物与个人信息）")
     print("=" * 62)
 
-    print("\n[含 runtime，解压即用 —— 唯一的发布包]")
-    out = build("hainnu-proxy.zip", with_runtime=True)
+    if "--scripts" in args:
+        # 轻量包：不含便携运行时。能成立是因为启动脚本会先跑 _deps_check.py，
+        # 本机有现成的依赖就复用，没有才建 .venv 装上 —— 因此不需要打包 38MB 运行时。
+        print("\n[不含 runtime —— 首次启动会自动准备依赖]")
+        out = build("hainnu-proxy-scripts.zip", with_runtime=False)
+    else:
+        print("\n[含 runtime，解压即用]")
+        out = build("hainnu-proxy.zip", with_runtime=True)
 
     print(f"\n全部完成 ✅  → {out.name}")
     return 0
