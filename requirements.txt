@@ -1,5 +1,5 @@
-# 代理运行时依赖（.venv 约 13MB）
-# 纯本地代理 + Anthropic 转换 + 自检都只用到这三条，其余由它们自动拉取。
+# Runtime deps (.venv about 13MB): fastapi, uvicorn, httpx.
+# ASCII only: pip reads -r with the locale encoding and dies on UTF-8 comments under GBK.
 fastapi
 uvicorn
 httpx

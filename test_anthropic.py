@@ -4,6 +4,14 @@ import os
 import sys
 import time
 
+# GBK consoles raise UnicodeEncodeError on emoji in the summary or in model text,
+# and 3.自检.bat then reports a false failure. Keep Chinese; escape the rest.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except Exception:
+        pass
+
 # 本机回环绕过系统代理，否则 HTTP_PROXY 会把本地请求送去代理并拿到 403。
 os.environ["NO_PROXY"] = os.environ["no_proxy"] = "localhost,127.0.0.1,::1"
 

@@ -27,6 +27,12 @@ import time
 import zipfile
 from pathlib import Path
 
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except Exception:
+        pass
+
 BASE = Path(__file__).resolve().parent
 
 # ---- 进包的文件（功能本体；改动前先想清楚"使用者真的需要它吗"）--------------

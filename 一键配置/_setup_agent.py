@@ -40,6 +40,12 @@ import sys
 import time
 from pathlib import Path
 
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="backslashreplace")
+    except Exception:
+        pass
+
 HERE = Path(__file__).resolve().parent
 BASE = HERE.parent                      # 项目根目录（config.json、token.txt 在这里）
 sys.path.insert(0, str(BASE))
