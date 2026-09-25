@@ -43,14 +43,16 @@ rem ---- 依赖自检：缺就自动装（等价于自动跑一遍 0.安装依赖.bat）----
 rem 仓库源码不含便携运行时 runtime\，系统 Python 往往也没装这几个包。
 rem 以前只提示"请手动执行 0.安装依赖.bat"，结果有人装了还失败、有人没看见提示，
 rem 服务照样起不来 —— 客户端只看到「目标计算机积极拒绝」。现在直接替他装。
-"%PY%" "%~dp0_deps_check.py" --install
+rem stdout 只吐 PY=<路径>，重定向到文件再取回；进度走 stderr，窗口里照常滚动。
+"%PY%" "%~dp0_deps_check.py" --install --print-python > "%TEMP%\hainnu_deps.txt"
 if errorlevel 1 (
   echo.
   echo   ============================================================
-  echo     依赖自动安装失败，服务起不来
+  echo     依赖没准备好，服务起不来
   echo   ============================================================
   echo.
-  echo   已依次尝试清华 / 阿里 / 官方三个 pip 源，都没装上。
+  echo   已在本机所有 Python 里找过现成的依赖，并依次尝试清华 / 阿里 / 官方
+  echo   三个 pip 源自动安装，都没成功。
   echo   请手动执行 0.安装依赖.bat 看完整报错，
   echo   或改用分发包 hainnu-proxy.zip（内含 runtime\，解压即用）。
   echo.
@@ -58,8 +60,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
-rem 依赖可能刚装进新建的 .venv\，重新解析一次解释器
-call _find_python.bat
+rem 取回应使用的解释器：本机已有的依赖常常不在最初那个 Python 里
+set "DEPSPY="
+for /f "usebackq tokens=1* delims==" %%A in ("%TEMP%\hainnu_deps.txt") do (
+  if "%%A"=="PY" set "DEPSPY=%%B"
+)
+del "%TEMP%\hainnu_deps.txt" >nul 2>nul
+if defined DEPSPY set "PY=%DEPSPY%"
 
 set "FORCE="
 

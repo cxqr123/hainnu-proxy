@@ -254,9 +254,111 @@ def _has_proxy_deps(py: Path) -> bool:
 
 
 
+_DEPS_PY: Path | None = None
+
+
+def any_python() -> Path | None:
+
+    """随便找一个能跑脚本的解释器 —— 不要求它装了依赖。
+
+    _deps_check.py 只用标准库，所以拿最差的系统 Python 也能把它跑起来。
+
+    """
+
+    cands = [Path(sys.executable)]
+
+    for name in ("py", "python", "python3"):
+
+        w = shutil.which(name)
+
+        if w:
+
+            cands.append(Path(w))
+
+    for c in cands:
+
+        try:
+
+            if c.exists() and subprocess.run([str(c), "-c", "pass"],
+
+                                             capture_output=True,
+
+                                             timeout=30).returncode == 0:
+
+                return c
+
+        except Exception:  # noqa: BLE001
+
+            continue
+
+    return None
+
+
+def deps_check_python() -> Path | None:
+
+    """让 _deps_check.py 统一决定用哪个解释器。
+
+    它会扫便携运行时 / 项目 .venv / py launcher 列出的全部版本 / conda 各 env /
+    PATH 上的 python，谁已经装齐依赖就用谁 —— 本机有现成的就直接复用，
+    不必再建 .venv 重下一遍。结果缓存：一次会话探一次就够。
+
+    """
+
+    global _DEPS_PY
+
+    if _DEPS_PY is not None:
+
+        return _DEPS_PY
+
+    host = any_python()
+
+    if host is None:
+
+        return None
+
+    try:
+
+        r = subprocess.run(
+
+            [str(host), str(BASE / "_deps_check.py"), "--print-python"],
+
+            cwd=str(BASE), capture_output=True, text=True,
+
+            encoding="utf-8", errors="replace", timeout=180)
+
+        for line in (r.stdout or "").splitlines():
+
+            if line.startswith("PY="):
+
+                cand = Path(line[3:].strip())
+
+                if cand.exists():
+
+                    _DEPS_PY = cand
+
+                    return cand
+
+    except Exception:  # noqa: BLE001
+
+        pass
+
+    return None
+
+
 def select_proxy_python() -> Path | None:
 
-    """选一个能跑桥的解释器：优先 .venv（自带依赖），其次找装了依赖的解释器兜底。"""
+    """选一个能跑桥的解释器。
+
+    先问 _deps_check.py —— 本机某个环境里已经装过 fastapi/uvicorn/httpx 的话
+    直接复用，一个包都不用下。它不可用（比如脚本缺失）时退回本地判断。
+
+    """
+
+    p = deps_check_python()
+
+    if p:
+
+        return p
 
     p = proxy_python()
 
@@ -291,9 +393,6 @@ def select_proxy_python() -> Path | None:
             return cand
 
     return None
-
-
-
 
 
 def fmt_tokens(n) -> str:
@@ -3032,44 +3131,6 @@ class HainnuGUI(tk.Tk):
 
 
 
-    def _any_python(self):
-
-        """随便找一个能跑脚本的解释器 —— 不要求它装了依赖。
-
-        _deps_check.py 只用标准库，所以拿最差的系统 Python 也能把它跑起来。
-
-        """
-
-        cands = [Path(sys.executable)]
-
-        for name in ("py", "python", "python3"):
-
-            w = shutil.which(name)
-
-            if w:
-
-                cands.append(Path(w))
-
-        for c in cands:
-
-            try:
-
-                if c.exists() and subprocess.run([str(c), "-c", "pass"],
-
-                                                 capture_output=True,
-
-                                                 timeout=30).returncode == 0:
-
-                    return c
-
-            except Exception:  # noqa: BLE001
-
-                continue
-
-        return None
-
-
-
     def _install_deps_then(self, on_ready=None):
 
         """缺依赖时后台自动安装（等价 0.安装依赖.bat），装完回调 on_ready。
@@ -3082,7 +3143,7 @@ class HainnuGUI(tk.Tk):
 
         """
 
-        host = self._any_python()
+        host = any_python()
 
         if host is None:
 
