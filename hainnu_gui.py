@@ -3032,23 +3032,131 @@ class HainnuGUI(tk.Tk):
 
 
 
-    def _proxy_cmd(self):
+    def _any_python(self):
 
-        py = select_proxy_python()
+        """随便找一个能跑脚本的解释器 —— 不要求它装了依赖。
 
-        if py is None:
+        _deps_check.py 只用标准库，所以拿最差的系统 Python 也能把它跑起来。
+
+        """
+
+        cands = [Path(sys.executable)]
+
+        for name in ("py", "python", "python3"):
+
+            w = shutil.which(name)
+
+            if w:
+
+                cands.append(Path(w))
+
+        for c in cands:
+
+            try:
+
+                if c.exists() and subprocess.run([str(c), "-c", "pass"],
+
+                                                 capture_output=True,
+
+                                                 timeout=30).returncode == 0:
+
+                    return c
+
+            except Exception:  # noqa: BLE001
+
+                continue
+
+        return None
+
+
+
+    def _install_deps_then(self, on_ready=None):
+
+        """缺依赖时后台自动安装（等价 0.安装依赖.bat），装完回调 on_ready。
+
+        为什么必须自动：以前只在状态栏写"请运行 0.安装依赖.bat"，结果服务根本
+
+        没起来，用户看到的只是客户端报「目标计算机积极拒绝」，两头对不上。
+
+        安装要几十秒，不能堵在 UI 线程。
+
+        """
+
+        host = self._any_python()
+
+        if host is None:
 
             self.q.put(("status_err",
 
-                        "找不到能跑桥的解释器：.venv 缺失，且系统 Python 未装"
+                        "本机找不到任何可用的 Python，无法创建 .venv。"
 
-                        " fastapi/uvicorn/httpx。请运行 0.安装依赖.bat 创建 .venv，"
+                        "建议改用分发包 hainnu-proxy.zip（内含便携运行时，解压即用）。"))
 
-                        "或在当前 Python 执行 pip install fastapi uvicorn httpx"))
+            return
 
-            return None
+        self.q.put(("status", "正在安装依赖（fastapi / uvicorn / httpx），请稍候 …"))
 
-        return py
+
+
+        def work():
+
+            try:
+
+                r = subprocess.run(
+
+                    [str(host), str(BASE / "_deps_check.py"), "--install"],
+
+                    cwd=str(BASE), capture_output=True, text=True,
+
+                    encoding="utf-8", errors="replace", timeout=900)
+
+            except Exception as exc:  # noqa: BLE001
+
+                self.q.put(("status_err", f"依赖安装失败：{exc}"))
+
+                return
+
+            if r.returncode == 0:
+
+                self.q.put(("status", "依赖已装齐，正在继续 …"))
+
+                if on_ready is not None:
+
+                    on_ready()
+
+            else:
+
+                self.q.put(("status_err",
+
+                            "依赖自动安装失败（已依次试过清华 / 阿里 / 官方三个源）。"
+
+                            "请手动执行 0.安装依赖.bat 看完整报错，或改用分发包 "
+
+                            "hainnu-proxy.zip（内含便携运行时，解压即用）。"))
+
+        threading.Thread(target=work, daemon=True).start()
+
+
+
+    def _proxy_cmd(self, on_ready=None):
+
+        """取一个能跑桥的解释器；一个都没有就自动装依赖（等价 0.安装依赖.bat）。
+
+        on_ready：装完后要重试的动作（例如再走一遍 _start_proxy）；
+
+        传 None 表示只提示、不自动重试（开机自启这类只读查询够用了）。
+
+        """
+
+        py = select_proxy_python()
+
+        if py is not None:
+
+            return py
+
+        self._install_deps_then(on_ready)
+
+        return None
 
 
 
@@ -3130,7 +3238,9 @@ class HainnuGUI(tk.Tk):
 
         """
 
-        py = self._proxy_cmd()
+        # 缺依赖时先自动装，装完带着同一个 force 参数重试一次
+
+        py = self._proxy_cmd(lambda: self._start_proxy(force))
 
         if py is None:
 

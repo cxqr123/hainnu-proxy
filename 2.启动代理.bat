@@ -1,11 +1,8 @@
 @echo off
 
-
 cd /d "%~dp0"
 
 title hainnu 代理
-
-
 
 rem ============================================================
 
@@ -31,8 +28,6 @@ rem    有人在听但不健康  -> 视为"忙"，默认不动；确认是残留才用 force 强制启动
 
 rem ============================================================
 
-
-
 call _find_python.bat
 
 if errorlevel 1 (
@@ -44,12 +39,31 @@ if errorlevel 1 (
 )
 
 
+rem ---- 依赖自检：缺就自动装（等价于自动跑一遍 0.安装依赖.bat）----
+rem 仓库源码不含便携运行时 runtime\，系统 Python 往往也没装这几个包。
+rem 以前只提示"请手动执行 0.安装依赖.bat"，结果有人装了还失败、有人没看见提示，
+rem 服务照样起不来 —— 客户端只看到「目标计算机积极拒绝」。现在直接替他装。
+"%PY%" "%~dp0_deps_check.py" --install
+if errorlevel 1 (
+  echo.
+  echo   ============================================================
+  echo     依赖自动安装失败，服务起不来
+  echo   ============================================================
+  echo.
+  echo   已依次尝试清华 / 阿里 / 官方三个 pip 源，都没装上。
+  echo   请手动执行 0.安装依赖.bat 看完整报错，
+  echo   或改用分发包 hainnu-proxy.zip（内含 runtime\，解压即用）。
+  echo.
+  pause
+  exit /b 1
+)
+
+rem 依赖可能刚装进新建的 .venv\，重新解析一次解释器
+call _find_python.bat
 
 set "FORCE="
 
 if /i "%~1"=="force" set "FORCE=--force"
-
-
 
 echo.
 
@@ -62,8 +76,6 @@ echo   ============================================================
 "%PY%" "%~dp0_port_guard.py" check %FORCE%
 
 set "RC=%ERRORLEVEL%"
-
-
 
 if "%RC%"=="10" (
 
@@ -78,8 +90,6 @@ if "%RC%"=="10" (
   exit /b 0
 
 )
-
-
 
 if "%RC%"=="11" (
 
@@ -97,13 +107,9 @@ if "%RC%"=="11" (
 
 )
 
-
-
 rem ---- 到这里 RC=0：端口上确实没人，或已按 force 授权 ----
 
 "%PY%" "%~dp0_port_guard.py" free
-
-
 
 echo.
 
@@ -120,8 +126,6 @@ echo.
 echo  关掉本窗口 = 停止代理。
 
 echo.
-
-
 
 "%PY%" hainnu_proxy.py
 
