@@ -20,7 +20,11 @@
 [贡献指南](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md)
 
 **请从 [Releases](https://github.com/sapphirestar46/hainnu-proxy/releases/latest) 下载最新包。**
-不要用页面上的「Code → Download ZIP」或 `git clone` 当安装包：仓库里没有便携 `runtime\`，直接启动会缺依赖。
+
+- `hainnu-proxy.zip`：含便携 `runtime\`，解压即用。
+- `hainnu-proxy-scripts.zip`：仅脚本，本机已有 Python 即可；第一次启动会自动安装依赖。
+
+不要把仓库页面的「Code → Download ZIP」当成便携安装包（那里没有 `runtime\`）。若用源码，直接执行 `2.启动代理.bat`，缺依赖时会自动安装。
 
 ## 0. 声明
 
@@ -109,7 +113,7 @@
 | 服务地址 | `http://127.0.0.1:8787/v1`（OpenAI）/ `http://127.0.0.1:8787`（Anthropic） |
 | API Key | `sk-hainnu`（本地校验用，可在 `config.json` 的 `local_api_key` 中修改） |
 | 模型名 | 无需指定；请求中的模型名由服务端解析为上游实际存在的 id，真实 id 见 `/v1/models` |
-| 部署步骤 | ① 安装依赖（通常可跳过，分发包内含 `runtime\`）② 人工登录获取令牌 ③ 启动并自检 |
+| 部署步骤 | ① 下载 Releases 包 ② 人工登录获取令牌 ③ 启动并自检。含 `runtime\` 的包不用单独装依赖；轻量包/源码由 `2.启动代理.bat` 自动安装 |
 | 唯一人工步骤 | 获取令牌时需在弹出的 Chrome 中通过学校 CAS 账号登录（Agent 不得代填密码） |
 | 分发包 | [Releases 最新版](https://github.com/sapphirestar46/hainnu-proxy/releases/latest)：`hainnu-proxy.zip`（含 `runtime\`，解压即用）或 `hainnu-proxy-scripts.zip`（仅脚本） |
 
@@ -124,8 +128,9 @@
 
 ### 6.2 安装依赖（通常可跳过，且已自动化）
 
-分发包内含便携 Python 运行时 `runtime\`，本步骤通常无需执行。如需改用系统 Python，
-执行 `0.安装依赖.bat`（创建 `.venv` 并安装 `fastapi` / `uvicorn` / `httpx`，约 13 MB）。
+含运行时的分发包（`hainnu-proxy.zip`）内含便携 Python `runtime\`，本步骤可跳过。
+轻量包（`hainnu-proxy-scripts.zip`）和仓库源码没有 `runtime\`：直接执行 `2.启动代理.bat` 即可，
+缺依赖时会自动安装；也可先执行 `0.安装依赖.bat`（创建 `.venv` 并安装 `fastapi` / `uvicorn` / `httpx`，约 13 MB）。
 
 **多数情况下连这一步都不用管**：`2.启动代理.bat` 与管理台的「启动代理」在拉起服务前会先做依赖自检，
 原则是**能复用就不下载**：
@@ -138,19 +143,15 @@
    清华源会被 403，而 `curl` 请求同一 URL 却是 200，镜像的封锁是"挑客户端"的，
    写死一个源就会让部分机器怎么装都装不上。
 
-- **验收**：目录中出现 `.venv\Scripts\python.exe`。
+- **验收**：含 `runtime\` 的包可跳过本步；轻量包/源码启动成功后，本机已有可用解释器
+  （可能是复用的系统 Python，或新建立的 `.venv\Scripts\python.exe`）。
 
-> ⚠️ **从 GitHub 下载源码时必读**：便携运行时 `runtime\` **不在仓库里**（体积过大，已排除），
-> 所以"下载 ZIP / `git clone` 仓库"得到的目录**没有 `runtime\`**。此时脚本会回退到系统 Python
-> （conda、miniconda 等），而它通常没装 `fastapi` / `uvicorn` / `httpx` → **服务启动失败**，
-> 客户端报「由于目标计算机积极拒绝，无法连接」（端口上根本没人监听）。
-> 两种解法，选其一：
->
-> 1. **用分发包** [Releases 里的 `hainnu-proxy.zip`](https://github.com/sapphirestar46/hainnu-proxy/releases/latest) —— 内含 `runtime\`，解压即用，推荐；
-> 2. 用源码就**先执行 `0.安装依赖.bat`**，装出 `.venv\` 后再启动。
->
-> 判断依据：启动窗口若出现 `ModuleNotFoundError: No module named 'fastapi'`（或 `uvicorn` / `httpx`），
-> 即是本条所述情况。
+> ⚠️ **仓库源码没有 `runtime\`**（体积过大，不入库）。不要把「Code → Download ZIP」当成便携安装包。
+> 用源码或轻量包时请走 `2.启动代理.bat`：它会先自检依赖，缺了再自动安装。
+> 若直接 `python hainnu_proxy.py` 且本机没装 `fastapi` / `uvicorn` / `httpx`，才会出现
+> `ModuleNotFoundError`，客户端则报「目标计算机积极拒绝」（端口上没人监听）。
+> 仍推荐从 [Releases](https://github.com/sapphirestar46/hainnu-proxy/releases/latest) 取
+> `hainnu-proxy.zip`（含 `runtime\`，解压即用）。
 
 > 获取令牌所需的 `playwright`（约 111 MB）不在运行时内，首次执行 `1.获取令牌.bat` 时按需安装，
 > 并使用本机已安装的 Chrome，不会额外下载浏览器。
@@ -422,8 +423,10 @@ curl --noproxy '*' http://127.0.0.1:8787/v1/chat/completions \
 `token.txt` 经 Windows DPAPI 加密，**不可直接复制**，请在**本机**执行（结果仅输出至当前终端）：
 
 ```bash
-runtime\python.exe -c "import token_codec;print(token_codec.decrypt(open('token.txt',encoding='utf-8').read().strip()))"
+python -c "import token_codec;print(token_codec.decrypt(open('token.txt',encoding='utf-8').read().strip()))"
 ```
+
+（有便携运行时则用 `runtime\python.exe -c "..."`，轻量包/源码用上面这条或 `.venv\Scripts\python.exe`。）
 
 将输出字符串填入客户端配置的 `apiKey`。
 

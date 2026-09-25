@@ -1,7 +1,7 @@
 # 给 AI Agent 的部署说明
 
 > 本文档面向 **AI Agent**（Claude Code / OpenCode / Codex / Cursor / DSH 等）。
-> 使用者请阅读 `README.md`；本文件是 README 第 14 节的完整内容，另附脚本速查与分发说明。
+> 使用者请阅读 `README.md`；本文件是 README 第 15 节指向的完整内容，另附脚本速查与分发说明。
 
 **用途**：在 Windows 上部署本目录中的本地接口服务（OpenAI + Anthropic 兼容），
 把使用者本人的校园登录态转换为标准协议接口，并验证端到端通话正常。
@@ -51,9 +51,10 @@
 
 按以下顺序执行，每步均有验收条件；未通过时按文末「故障对照」处理，**不得凭推测修改代码**：
 
-S1  安装依赖（仅当不存在 runtime\ 且不存在 .venv\ 时执行；分发包已含 runtime\，通常可跳过）
+S1  安装依赖（仅当不存在 runtime\ 且不存在 .venv\ 时需要；含 runtime 的包可跳过。
+    轻量包/源码也可跳过本步，直接 S3：`2.启动代理.bat` 会自动准备依赖）
     执行：0.安装依赖.bat
-    验收：本目录出现 .venv\Scripts\python.exe
+    验收：本目录出现 .venv\Scripts\python.exe，或 S3 已能拉起服务
 
 S2  【唯一需要人工介入的步骤】获取令牌
     执行：1.获取令牌.bat
@@ -160,8 +161,9 @@ F8 curl 返回 403 或无法连接本地端口 → 本机设置了 HTTP_PROXY �
 
 ## 5. 分发说明
 
-分发包由开发目录中的 `build_portable.py` 生成（该脚本本身不随包分发）：
+分发包由开发目录中的 `build_portable.py` 生成（该脚本本身不随包分发），发布在 GitHub Releases：
 **`hainnu-proxy.zip`** —— 脚本 + `runtime/`，解压即用。
+**`hainnu-proxy-scripts.zip`** —— 仅脚本；本机已有 Python 时用，首次 `2.启动代理.bat` 会自动准备依赖。
 
 | 目录 / 文件 | 是否分发 | 说明 |
 | --- | --- | --- |
